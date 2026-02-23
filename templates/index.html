@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Artifact Comparison - The-FlintStones</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/earth-theme.css') }}">
+</head>
+<body>
+    <div class="earth-background">
+    </div>
+
+    <header class="header">
+        <nav class="nav-container">
+            <div class="logo">
+                <i class="fas fa-gem"></i>
+                <span>The-FlintStones</span>
+            </div>
+            <div class="nav-links">
+                <a href="#home" class="nav-link">Home</a>
+                <a href="#compare" class="nav-link">Compare</a>
+                <a href="#database" class="nav-link">Collection</a>
+                <a href="#about" class="nav-link">About</a>
+            </div>
+            <div class="auth-buttons">
+                {% if user_logged_in %}
+                <span class="welcome-text">Welcome, {{ username }}</span>
+                <button id="logoutBtn" class="earth-btn danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+                {% else %}
+                <button id="loginBtn" class="earth-btn primary">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        {% if not user_logged_in %}
+        <section id="home" class="hero-section auth-hero">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <i class="fas fa-mountain"></i>
+                    Historical Artifact Comparison
+                </h1>
+                <p class="hero-subtitle">Discover, Analyze, and Preserve Historical Artifacts Through AI</p>
+                <div class="auth-prompt">
+                    <button id="heroLoginBtn" class="earth-btn primary large">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                    <button id="heroRegisterBtn" class="earth-btn primary large">
+                        <i class="fas fa-user-plus"></i> Register
+                    </button>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-database"></i>
+                        <span class="stat-number">100%</span>
+                        <span class="stat-label">AI-Powered</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-globe"></i>
+                        <span class="stat-number">3D</span>
+                        <span class="stat-label">Reconstruction</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-brain"></i>
+                        <span class="stat-number">Smart</span>
+                        <span class="stat-label">Matching</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% else %}
+
+        <section id="home" class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <i class="fas fa-mountain"></i>
+                    Historical Artifact Collection
+                </h1>
+                <p class="hero-subtitle">Your Personal Artifact Database</p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-database"></i>
+                        <span class="stat-number">{{ artifacts|length }}</span>
+                        <span class="stat-label">Artifacts</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-globe"></i>
+                        <span class="stat-number">100%</span>
+                        <span class="stat-label">Flint-Powered</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-brain"></i>
+                        <span class="stat-number">AI</span>
+                        <span class="stat-label">Analysis</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="compare" class="upload-section">
+            <div class="section-container" style="max-width: 100%; padding: 2rem;">
+                <h2 class="section-title">
+                    <i class="fas fa-plus-circle"></i>
+                    Add to Collection
+                </h2>
+                
+                <div class="upload-card" style="width: 100%; max-width: 800px; margin: 0 auto;">
+                    <form id="addToDatabaseForm" class="upload-form" enctype="multipart/form-data">
+                        <div class="file-input-wrapper" style="width: 100%;">
+                            <input type="file" name="file" id="databaseFile" accept="image/*" required>
+                            <label for="databaseFile" class="file-input-label" style="width: 100%; height: 150px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-image" style="font-size: 3rem;"></i>
+                                <span style="font-size: 1.2rem;">Choose Image</span>
+                            </label>
+                        </div>
+                        <input type="text" name="name" class="earth-input" placeholder="Artifact name *" required>
+                        <input type="text" name="description" class="earth-input" placeholder="Description (optional)">
+                        <input type="text" name="origin" class="earth-input" placeholder="Origin/Location (optional)">
+                        <input type="text" name="era" class="earth-input" placeholder="Era/Period (optional)">
+                        <button type="submit" class="earth-btn success" style="width: 100%; padding: 1rem; font-size: 1.1rem;">
+                            <i class="fas fa-database"></i>
+                            Add to Collection
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <div id="resultsContainer" style="display: none;"></div>
+
+        <section id="database" class="database-section">
+            <div class="section-container">
+                <h2 class="section-title">
+                    <i class="fas fa-museum"></i>
+                    Your Artifact Collection
+                </h2>
+                
+                <div class="database-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Search artifacts...">
+                    </div>
+                    <div class="filter-controls">
+                        <select id="eraFilter" class="earth-select">
+                            <option value="">All Eras</option>
+                        </select>
+                        <select id="originFilter" class="earth-select">
+                            <option value="">All Origins</option>
+                        </select>
+                    </div>
+                    <button id="clearDatabase" class="earth-btn danger">
+                        <i class="fas fa-trash"></i>
+                        Clear Collection
+                    </button>
+                </div>
+
+                <div class="artifact-controls">
+                    <div class="selection-info">
+                        <span id="selectionCount">0</span> artifacts selected (select 2 or more)
+                    </div>
+                    <button id="compareSelectedBtn" class="earth-btn primary" disabled>
+                        <i class="fas fa-puzzle-piece"></i> Analyze Connection
+                    </button>
+                </div>
+
+                <div class="artifact-grid" id="artifactGrid">
+                    {% for artifact in artifacts %}
+                    <div class="artifact-card" data-id="{{ artifact.id }}" data-name="{{ artifact.name|lower }}" data-era="{{ artifact.era|lower }}" data-origin="{{ artifact.origin|lower }}">
+                        <div class="artifact-checkbox">
+                            <input type="checkbox" class="artifact-select" data-id="{{ artifact.id }}">
+                        </div>
+                        <div class="artifact-image-wrapper">
+                            <img src="{{ artifact.image_base64 }}" alt="{{ artifact.name }}" class="artifact-image">
+                            <div class="artifact-overlay">
+                                <button class="view-detail-btn" data-id="{{ artifact.id }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="artifact-info">
+                            <h3 class="artifact-name">{{ artifact.name }}</h3>
+                            <p class="artifact-meta">
+                                <span class="meta-item"><i class="fas fa-calendar"></i> {{ artifact.timestamp[:10] }}</span>
+                                {% if artifact.era %}
+                                <span class="meta-item"><i class="fas fa-history"></i> {{ artifact.era }}</span>
+                                {% endif %}
+                            </p>
+                            {% if artifact.description %}
+                            <p class="artifact-description">{{ artifact.description[:80] }}{% if artifact.description|length > 80 %}...{% endif %}</p>
+                            {% endif %}
+                        </div>
+                        <div class="artifact-actions">
+                            <button class="action-btn view-btn" data-id="{{ artifact.id }}" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="action-btn delete-btn" data-id="{{ artifact.id }}" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if not artifacts %}
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No Artifacts Yet</h3>
+                    <p>Start building your collection by uploading historical artifacts</p>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <div class="footer-logo">
+                    <i class="fas fa-gem"></i>
+                    <span>The-FlintStones</span>
+                </div>
+                <p>Preserving history through AI-powered artifact analysis</p>
+            </div>
+            <div class="footer-section">
+                <h4>Powered by Flint</h4>
+                <p>Using cutting-edge AI to understand our past</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 The-FlintStones. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content auth-modal">
+            <span class="modal-close" data-modal="loginModal">&times;</span>
+            <div class="auth-modal-header">
+                <i class="fas fa-sign-in-alt"></i>
+                <h2>Welcome Back</h2>
+            </div>
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" name="username" class="earth-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" class="earth-input" required>
+                </div>
+                <button type="submit" class="earth-btn primary full-width">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
+            <p class="auth-switch">
+                Don't have an account? <a href="#" id="switchToRegister">Register</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content auth-modal">
+            <span class="modal-close" data-modal="registerModal">&times;</span>
+            <div class="auth-modal-header">
+                <i class="fas fa-user-plus"></i>
+                <h2>Create Account</h2>
+            </div>
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" name="username" class="earth-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" name="email" class="earth-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" name="password" class="earth-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirm Password</label>
+                    <input type="password" id="registerConfirmPassword" name="confirm_password" class="earth-input" required>
+                </div>
+                <button type="submit" class="earth-btn success full-width">
+                    <i class="fas fa-user-plus"></i> Register
+                </button>
+            </form>
+            <p class="auth-switch">
+                Already have an account? <a href="#" id="switchToLogin">Login</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Artifact Detail Modal -->
+    <div id="artifactDetailModal" class="modal">
+        <div class="modal-content detail-modal">
+            <span class="modal-close" data-modal="artifactDetailModal">&times;</span>
+            <div class="detail-modal-body">
+                <div class="detail-images-section">
+                    <div class="detail-image-wrapper">
+                        <h4>Original Image</h4>
+                        <img id="detailImage" src="" alt="Artifact">
+                    </div>
+                    <div class="detail-image-wrapper">
+                        <h4>Segmentation Result</h4>
+                        <img id="detailResultImage" src="" alt="Segmentation Result">
+                    </div>
+                </div>
+                <div class="detail-info-section">
+                    <h2 id="detailName" class="detail-title"></h2>
+                    <div class="detail-meta">
+                        <p><i class="fas fa-calendar"></i> <span id="detailTimestamp"></span></p>
+                        <p><i class="fas fa-map-marker-alt"></i> <span id="detailOrigin"></span></p>
+                        <p><i class="fas fa-history"></i> <span id="detailEra"></span></p>
+                    </div>
+                    <div class="detail-features" id="detailFeatures">
+                        <h4>Features</h4>
+                        <div class="features-grid" id="featuresGrid"></div>
+                    </div>
+                    <div class="similar-artifacts-section" id="similarSection">
+                        <h4>Similar Artifacts</h4>
+                        <div class="similar-artifacts-grid" id="similarGrid"></div>
+                        <button id="loadMoreSimilar" class="earth-btn secondary" style="display: none;">
+                            <i class="fas fa-chevron-down"></i> Load More
+                        </button>
+                    </div>
+                    <div class="detail-actions">
+                        <button id="detailDeleteBtn" class="earth-btn danger">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Puzzle Comparison Modal -->
+    <div id="puzzleCompareModal" class="modal">
+        <div class="modal-content detail-modal" style="max-width: 900px;">
+            <span class="modal-close" data-modal="puzzleCompareModal">&times;</span>
+            <div class="puzzle-modal-header">
+                <h2><i class="fas fa-puzzle-piece"></i> Puzzle Connection Analysis</h2>
+            </div>
+            <div class="puzzle-compare-section">
+                <div class="puzzle-artifacts-grid" id="selectedArtifactsGrid"></div>
+                <div class="puzzle-results" id="puzzleResults">
+                    <div class="puzzle-score-section">
+                        <h3>Overall Connection Score</h3>
+                        <div class="puzzle-score-circle" id="puzzleScoreCircle">
+                            <span id="puzzleTotalScore">0%</span>
+                        </div>
+                    </div>
+                    <div class="puzzle-breakdown">
+                        <div class="puzzle-metric">
+                            <div class="metric-header">
+                                <i class="fas fa-palette"></i>
+                                <span>Color Match</span>
+                                <span class="metric-value" id="colorScore">0%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="colorBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="puzzle-metric">
+                            <div class="metric-header">
+                                <i class="fas fa-shapes"></i>
+                                <span>Pattern Match</span>
+                                <span class="metric-value" id="patternScore">0%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="patternBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="puzzle-metric">
+                            <div class="metric-header">
+                                <i class="fas fa-puzzle-piece"></i>
+                                <span>Puzzle Fit</span>
+                                <span class="metric-value" id="puzzleFitScore">0%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="puzzleFitBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="connection-status" id="connectionStatus">
+                        Select 2 or more artifacts to analyze
+                    </div>
+                    <div class="puzzle-verdict" id="puzzleVerdict">
+                        Select artifacts to analyze
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="earth-spinner"></div>
+            <p>Processing artifacts...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/earth-theme.js') }}"></script>
+</body>
+</html>
