@@ -14,8 +14,124 @@ from functools import wraps
 from datetime import datetime
 
 from TraditionalSegmentation import separate_objects, classify_by_position, create_segmentation_visualization, get_polygon_from_contour, get_all_artifact_polygons, calculate_dimensions, compare_artifacts
+from fracture_matching import find_connection, visualise_assembly, get_artifact_contour
 
 METER_LENGTH_CM = 8
+
+def mark_connection_on_artifacts(img1_path, img2_path, result, pair_num):
+    """
+    Show two artifacts assembled together aligned to their common vessel circle.
+    """
+    img1 = cv2.imread(img1_path)
+    img2 = cv2.imread(img2_path)
+    
+    if img1 is None or img2 is None:
+        return None
+    
+    intern = result.get('internal')
+    if not intern:
+        return None
+    
+    tf = intern.get('transform')
+    if tf is None:
+        return None
+    
+    si, sj = intern.get('best_pair', (0, 0))
+    segs1 = intern.get('segs1', [])
+    segs2 = intern.get('segs2', [])
+    pts1 = intern.get('pts1')
+    pts2 = intern.get('pts2')
+    
+    if pts1 is None or pts2 is None:
+        return None
+    
+    dx = tf.get('dx', 0)
+    dy = tf.get('dy', 0)
+    pts2_t = pts2 + np.array([dx, dy])
+    
+    all_pts = np.vstack([pts1, pts2_t])
+    margin = 40
+    x_min, y_min = all_pts.min(axis=0) - margin
+    x_max, y_max = all_pts.max(axis=0) + margin
+    
+    scale = min(800 / (x_max - x_min), 500 / (y_max - y_min), 1.5)
+    CW = int((x_max - x_min) * scale) + 60
+    CH = int((y_max - y_min) * scale) + 80
+    canvas = np.full((CH, CW, 3), 25, dtype=np.uint8)
+    ox = int(-x_min * scale + 30)
+    oy = int(-y_min * scale + 50)
+    
+    def to_canvas(pts):
+        return (pts * scale + np.array([ox, oy])).astype(np.int32)
+    
+    def blit(img_src, pts_orig, pts_c, outline_col):
+        sx, sy, sw, sh = cv2.boundingRect(pts_orig.astype(np.int32))
+        sx1, sy1 = max(0, sx - 2), max(0, sy - 2)
+        sx2, sy2 = min(img_src.shape[1], sx + sw + 2), min(img_src.shape[0], sy + sh + 2)
+        src = img_src[sy1:sy2, sx1:sx2]
+        if src.size == 0:
+            return
+        sw_s, sh_s = int((sx2 - sx1) * scale), int((sy2 - sy1) * scale)
+        if sw_s < 1 or sh_s < 1:
+            return
+        src_r = cv2.resize(src, (sw_s, sh_s))
+        mask = np.zeros((sh_s, sw_s), dtype=np.uint8)
+        lpts = ((pts_orig - np.array([sx1, sy1])) * scale).astype(np.int32)
+        cv2.fillPoly(mask, [lpts], 255)
+        
+        bx, by, _, _ = cv2.boundingRect(pts_c)
+        dst_x, dst_y = bx, by
+        d_x2 = min(canvas.shape[1], dst_x + sw_s)
+        d_y2 = min(canvas.shape[0], dst_y + sh_s)
+        s_x2, s_y2 = min(sw_s, d_x2 - dst_x), min(sh_s, d_y2 - dst_y)
+        if s_x2 <= 0 or s_y2 <= 0:
+            return
+        patch = src_r[:s_y2, :s_x2]
+        msk = mask[:s_y2, :s_x2]
+        reg = canvas[dst_y:dst_y + s_y2, dst_x:dst_x + s_x2]
+        if patch.shape != reg.shape:
+            return
+        canvas[dst_y:dst_y + s_y2, dst_x:dst_x + s_x2] = np.where(
+            msk[:, :, None] > 0, patch, reg)
+        cv2.drawContours(canvas, [pts_c.reshape(-1, 1, 2)], -1, outline_col, 2)
+    
+    blit(img1, pts1, to_canvas(pts1), (80, 200, 255))
+    blit(img2, pts2, to_canvas(pts2_t), (80, 255, 150))
+    
+    if si < len(segs1):
+        arc1 = to_canvas(segs1[si]['points'])
+        cv2.polylines(canvas, [arc1], False, (0, 255, 255), 3)
+        for pt in arc1:
+            cv2.circle(canvas, tuple(pt), 4, (0, 255, 255), -1)
+    
+    if sj < len(segs2):
+        arc2 = to_canvas(segs2[sj]['points'] + np.array([dx, dy]))
+        cv2.polylines(canvas, [arc2], False, (0, 255, 0), 3)
+        for pt in arc2:
+            cv2.circle(canvas, tuple(pt), 4, (0, 255, 0), -1)
+    
+    if si < len(segs1) and sj < len(segs2):
+        arc1 = segs1[si]['points']
+        arc2 = segs2[sj]['points'] + np.array([dx, dy])
+        
+        closest_p1, closest_p2 = None, None
+        min_dist = float('inf')
+        
+        for p1 in arc1:
+            for p2 in arc2:
+                d = np.linalg.norm(p1 - p2)
+                if d < min_dist:
+                    min_dist = d
+                    closest_p1 = p1
+                    closest_p2 = p2
+        
+        if closest_p1 is not None and closest_p2 is not None:
+            cp1 = to_canvas(closest_p1.reshape(1, -1))[0]
+            cp2 = to_canvas(closest_p2.reshape(1, -1))[0]
+            cv2.circle(canvas, tuple(cp1), 12, (0, 165, 255), 3)
+            cv2.circle(canvas, tuple(cp2), 12, (0, 165, 255), 3)
+    
+    return canvas
 
 def get_artifact_polygon_cm(img_path, meter_length_cm=METER_LENGTH_CM):
     result = get_all_artifact_polygons(img_path, meter_length_cm=meter_length_cm, min_area=500)
@@ -501,36 +617,22 @@ def compare_two_artifacts():
     if not artifact1 or not artifact2:
         return jsonify({'error': 'One or both artifacts not found'}), 404
     
-    import json
-    
     try:
-        poly1 = json.loads(artifact1['polygon'])
-        poly2 = json.loads(artifact2['polygon'])
+        result = find_connection(artifact1['image_path'], artifact2['image_path'])
+        puzzle_score = result.get('score', 0)
+        connects = result.get('connects', False)
         
-        from TraditionalSegmentation import extract_color_features, pattern_similarity, extract_edge_profile, edge_complementarity, color_similarity
-        import numpy as np
+        assembly_image = None
+        if result.get('internal'):
+            annotated = mark_connection_on_artifacts(
+                artifact1['image_path'], artifact2['image_path'], 
+                result, 1
+            )
+            if annotated is not None:
+                _, buffer = cv2.imencode('.png', annotated)
+                assembly_image = f"data:image/png;base64,{base64.b64encode(buffer).decode('utf-8')}"
         
-        contour1 = np.array(poly1, dtype=np.int32)
-        contour2 = np.array(poly2, dtype=np.int32)
-        
-        img1 = cv2.imread(artifact1['image_path'])
-        img2 = cv2.imread(artifact2['image_path'])
-        
-        color1 = extract_color_features(img1, contour1)
-        color2 = extract_color_features(img2, contour2)
-        
-        color_score = color_similarity(color1, color2)
-        
-        pattern_score = pattern_similarity(poly1, poly2)
-        
-        puzzle_score = edge_complementarity(poly1, poly2)
-        
-        weights = {'color': 0.20, 'pattern': 0.20, 'puzzle': 0.60}
-        final_score = (
-            color_score * weights['color'] +
-            pattern_score * weights['pattern'] +
-            puzzle_score * weights['puzzle']
-        )
+        final_score = puzzle_score
         
         verdict = "Perfect Match!"
         if final_score < 20:
@@ -554,12 +656,13 @@ def compare_two_artifacts():
                 'image_base64': artifact2['image_base64']
             },
             'scores': {
-                'color': float(round(color_score, 2)),
-                'pattern': float(round(pattern_score, 2)),
                 'puzzle_fit': float(round(puzzle_score, 2)),
                 'total': float(round(final_score, 2))
             },
-            'verdict': verdict
+            'verdict': verdict,
+            'connects': connects,
+            'assembly_image': assembly_image,
+            'fracture_message': result.get('message', '')
         }), 200
         
     except Exception as e:
@@ -743,54 +846,44 @@ def compare_multiple_artifacts():
     import json
     
     try:
-        from TraditionalSegmentation import extract_color_features, pattern_similarity, edge_complementarity, color_similarity
-        
-        total_color = 0
-        total_pattern = 0
-        total_puzzle = 0
         pair_scores = []
+        assembly_images = []
         
         for i in range(len(artifacts)):
             art1 = artifacts[i]
             art2 = artifacts[(i + 1) % len(artifacts)]
             
-            poly1 = json.loads(art1['polygon'])
-            poly2 = json.loads(art2['polygon'])
+            result = find_connection(art1['image_path'], art2['image_path'])
             
-            contour1 = np.array(poly1, dtype=np.int32)
-            contour2 = np.array(poly2, dtype=np.int32)
+            puzzle_score = result.get('score', 0)
+            connects = result.get('connects', False)
             
-            img1 = cv2.imread(art1['image_path'])
-            img2 = cv2.imread(art2['image_path'])
+            pair_assembly = None
+            if result.get('internal'):
+                assembly_img = visualise_assembly(result)
+                if assembly_img is not None:
+                    annotated = mark_connection_on_artifacts(
+                        art1['image_path'], art2['image_path'], 
+                        result, i + 1
+                    )
+                    if annotated is not None:
+                        _, buffer = cv2.imencode('.png', annotated)
+                        pair_assembly = base64.b64encode(buffer).decode('utf-8')
             
-            color1 = extract_color_features(img1, contour1)
-            color2 = extract_color_features(img2, contour2)
+            assembly_images.append(pair_assembly)
             
-            color_score = color_similarity(color1, color2)
-            pattern_score = pattern_similarity(poly1, poly2)
-            puzzle_score = edge_complementarity(poly1, poly2)
-            
-            total_color += color_score
-            total_pattern += pattern_score
-            total_puzzle += puzzle_score
             pair_scores.append({
                 'score': float(puzzle_score),
-                'can_connect': bool(puzzle_score >= 40),
+                'can_connect': connects,
                 'from_idx': int(i),
-                'to_idx': int((i + 1) % len(artifacts))
+                'to_idx': int((i + 1) % len(artifacts)),
+                'message': result.get('message', '')
             })
         
         n = len(artifacts)
-        avg_color = total_color / n
-        avg_pattern = total_pattern / n
-        avg_puzzle = total_puzzle / n
+        avg_puzzle = sum(ps['score'] for ps in pair_scores) / n
         
-        weights = {'color': 0.20, 'pattern': 0.20, 'puzzle': 0.60}
-        final_score = (
-            avg_color * weights['color'] +
-            avg_pattern * weights['pattern'] +
-            avg_puzzle * weights['puzzle']
-        )
+        final_score = avg_puzzle
         
         disrupting_pieces = []
         if final_score < 40 and len(artifacts) > 2:
@@ -807,8 +900,6 @@ def compare_multiple_artifacts():
             x_max, y_max = poly_arr.max(axis=0)
             cx = (x_min + x_max) / 2
             cy = (y_min + y_max) / 2
-            w = float(x_max - x_min)
-            h = float(y_max - y_min)
             
             can_connect_prev = any(ps['to_idx'] == i and ps['can_connect'] for ps in pair_scores)
             can_connect_next = any(ps['from_idx'] == i and ps['can_connect'] for ps in pair_scores)
@@ -852,17 +943,13 @@ def compare_multiple_artifacts():
                 disrupting_str = ", ".join([f"#{p}" for p in disrupting_pieces])
                 verdict = f"Won't Connect - Piece {disrupting_str} disrupts"
         
-        vis_img = create_connection_visualization(artifacts, pair_scores, connection_points)
-        
         return jsonify({
             'artifacts': [
                 {'id': a['id'], 'name': a['name'], 'image_base64': a['image_base64']}
                 for a in artifacts
             ],
-            'connection_image': vis_img,
+            'assembly_images': assembly_images,
             'scores': {
-                'color': float(round(avg_color, 2)),
-                'pattern': float(round(avg_pattern, 2)),
                 'puzzle_fit': float(round(avg_puzzle, 2)),
                 'total': float(round(final_score, 2))
             },
@@ -871,7 +958,8 @@ def compare_multiple_artifacts():
                     'from': int(ps['from_idx']),
                     'to': int(ps['to_idx']),
                     'score': float(ps['score']),
-                    'can_connect': bool(ps['can_connect'])
+                    'can_connect': bool(ps['can_connect']),
+                    'message': ps.get('message', '')
                 }
                 for ps in pair_scores
             ],

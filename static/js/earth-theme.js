@@ -82,61 +82,57 @@ async function compareMultipleArtifacts(ids) {
 function displayPuzzleComparison(data) {
     const grid = document.getElementById('selectedArtifactsGrid');
     
-    const getConnectionMarkers = (idx) => {
-        if (!data.connection_points || !data.connection_points[idx]) return '';
-        
-        const cp = data.connection_points[idx];
-        let markers = '';
-        
-        const sidePositions = {
-            'left': { left: '5%', top: '50%', transform: 'translateY(-50%)' },
-            'right': { left: '95%', top: '50%', transform: 'translate(-100%, -50%)' },
-            'top': { left: '50%', top: '5%', transform: 'translateX(-50%)' },
-            'bottom': { left: '50%', top: '95%', transform: 'translate(-50%, -100%)' }
-        };
-        
-        Object.keys(sidePositions).forEach(side => {
-            const point = cp[side + '_point'];
-            if (point && point.connects) {
-                const pos = sidePositions[side];
-                const icon = side === 'left' ? '← Connect' : (side === 'right' ? 'Connect →' : (side === 'top' ? '↑' : '↓'));
-                markers += `
-                    <div class="connection-marker ${side}" style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: ${pos.transform};">
-                        <span class="marker-icon">${icon}</span>
-                    </div>
-                `;
-            }
-        });
-        
-        return markers;
-    };
-    
-    grid.innerHTML = data.artifacts.map((art, idx) => {
+    let artifactsHtml = data.artifacts.map((art, idx) => {
         const isDisrupting = data.disrupting_pieces && data.disrupting_pieces.includes(idx);
         const disruptingClass = isDisrupting ? 'disrupting' : '';
-        const markers = getConnectionMarkers(idx);
-        
         return `
             <div class="puzzle-artifact-item ${disruptingClass}">
-                <div class="artifact-img-container" style="position: relative; display: inline-block;">
-                    <img src="${art.image_base64}" alt="${art.name}" id="artifact-img-${idx}">
-                    ${markers}
-                </div>
-                <span class="artifact-num">${idx + 1}</span>
-                ${isDisrupting ? '<span class="disrupt-badge"><i class="fas fa-exclamation-triangle"></i></span>' : ''}
+                <img src="${art.image_base64}" alt="${art.name}">
+                <span class="artifact-num">#${idx + 1}</span>
                 <p>${art.name}</p>
-                ${isDisrupting ? '<p class="disrupt-label">Disrupts!</p>' : ''}
+                ${isDisrupting ? '<span class="disrupt-badge">Disrupts!</span>' : ''}
             </div>
         `;
     }).join('');
     
-    document.getElementById('puzzleTotalScore').textContent = data.scores.total + '%';
-    document.getElementById('colorScore').textContent = data.scores.color + '%';
-    document.getElementById('patternScore').textContent = data.scores.pattern + '%';
-    document.getElementById('puzzleFitScore').textContent = data.scores.puzzle_fit + '%';
+    let arrowsHtml = '';
+    data.pair_scores.forEach((pair, idx) => {
+        const canConnect = pair.can_connect;
+        arrowsHtml += `
+            <div class="connection-arrow ${canConnect ? 'can-connect' : 'cannot-connect'}">
+                <i class="fas fa-arrow-${canConnect ? 'right' : 'times'}"></i>
+                <span>${pair.score.toFixed(0)}%</span>
+            </div>
+        `;
+    });
     
-    document.getElementById('colorBar').style.width = data.scores.color + '%';
-    document.getElementById('patternBar').style.width = data.scores.pattern + '%';
+    grid.innerHTML = artifactsHtml + '<div class="connection-arrows">' + arrowsHtml + '</div>';
+    
+    const assemblyImagesContainer = document.getElementById('assemblyImages');
+    
+    if (data.assembly_images && data.assembly_images.some(img => img)) {
+        assemblyImagesContainer.innerHTML = data.assembly_images.map((img, idx) => {
+            if (!img) return '';
+            const pair = data.pair_scores[idx];
+            return `
+                <div class="connection-pair-view">
+                    <div class="pair-header">
+                        <span class="pair-label">Connection #${idx + 1}: Piece ${idx + 1} → Piece ${(idx + 1) % data.artifacts.length + 1}</span>
+                        <span class="pair-score ${pair.can_connect ? 'score-connect' : 'score-no-connect'}">
+                            ${pair.can_connect ? '✓ CONNECT' : '✗ NO CONNECT'} (${pair.score.toFixed(0)}%)
+                        </span>
+                    </div>
+                    <img src="data:image/png;base64,${img}" alt="Connection ${idx + 1}">
+                    ${pair.message ? `<p class="pair-message">${pair.message}</p>` : ''}
+                </div>
+            `;
+        }).join('');
+    } else {
+        assemblyImagesContainer.innerHTML = '<p class="no-connections">No matching arc segments found</p>';
+    }
+    
+    document.getElementById('puzzleTotalScore').textContent = data.scores.total + '%';
+    document.getElementById('puzzleFitScore').textContent = data.scores.puzzle_fit + '%';
     document.getElementById('puzzleFitBar').style.width = data.scores.puzzle_fit + '%';
     
     const scoreCircle = document.getElementById('puzzleScoreCircle');
@@ -152,34 +148,6 @@ function displayPuzzleComparison(data) {
     document.getElementById('puzzleVerdict').textContent = data.verdict;
     
     const connectionStatus = document.getElementById('connectionStatus');
-    
-    let gridHtml = data.artifacts.map((art, idx) => {
-        const isDisrupting = data.disrupting_pieces && data.disrupting_pieces.includes(idx);
-        const disruptingClass = isDisrupting ? 'disrupting' : '';
-        return `
-            <div class="puzzle-artifact-item ${disruptingClass}">
-                <img src="${art.image_base64}" alt="${art.name}" id="artifact-img-${idx}">
-                <span class="artifact-num">${idx + 1}</span>
-                ${isDisrupting ? '<span class="disrupt-badge"><i class="fas fa-exclamation-triangle"></i></span>' : ''}
-                <p>${art.name}</p>
-                ${isDisrupting ? '<p class="disrupt-label">Disrupts!</p>' : ''}
-            </div>
-        `;
-    }).join('');
-    
-    gridHtml += '<div class="connection-arrows">';
-    data.pair_scores.forEach((pair, idx) => {
-        const canConnect = pair.can_connect;
-        gridHtml += `
-            <div class="connection-arrow ${canConnect ? 'can-connect' : 'cannot-connect'}">
-                <i class="fas fa-arrow-${canConnect ? 'right' : 'times'}"></i>
-                <span>${pair.score.toFixed(0)}%</span>
-            </div>
-        `;
-    });
-    gridHtml += '</div>';
-    
-    grid.innerHTML = gridHtml;
     
     if (data.scores.total >= 40) {
         connectionStatus.innerHTML = `<span class="status-success"><i class="fas fa-check-circle"></i> These artifacts can potentially connect!</span>`;

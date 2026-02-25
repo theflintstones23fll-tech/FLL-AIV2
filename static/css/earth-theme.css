@@ -1059,3 +1059,129 @@ body {
         min-width: auto;
     }
 }
+
+/* Assembly Visualization */
+.assembly-visualization {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    border: 1px solid var(--earth-tan);
+}
+
+.assembly-visualization h4 {
+    color: var(--earth-brown-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.assembly-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.assembly-image-item {
+    text-align: center;
+}
+
+.assembly-image-item img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    border: 2px solid var(--earth-tan);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.assembly-caption {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--earth-brown);
+}
+
+/* Connection Pair View */
+.connection-visuals {
+    margin-bottom: 1.5rem;
+}
+
+.artifacts-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.connection-images {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.connection-pair-view {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 10px;
+    padding: 1rem;
+    border: 2px solid var(--earth-tan);
+}
+
+.connection-pair-view .pair-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.connection-pair-view .pair-label {
+    font-weight: bold;
+    color: var(--earth-brown-primary);
+}
+
+.connection-pair-view .pair-score {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.connection-pair-view .score-connect {
+    background: rgba(0, 200, 0, 0.2);
+    color: #006400;
+    border: 1px solid #006400;
+}
+
+.connection-pair-view .score-no-connect {
+    background: rgba(200, 0, 0, 0.2);
+    color: #8b0000;
+    border: 1px solid #8b0000;
+}
+
+.connection-pair-view img {
+    max-width: 100%;
+    max-height: 350px;
+    display: block;
+    margin: 0 auto;
+    border-radius: 8px;
+    border: 2px solid var(--earth-tan);
+}
+
+.connection-pair-view .pair-message {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--earth-brown);
+    text-align: center;
+    font-style: italic;
+}
+
+.no-connections {
+    text-align: center;
+    color: var(--earth-brown);
+    font-style: italic;
+    padding: 2rem;
+}
